@@ -1,0 +1,135 @@
+﻿@model CherwellTriangles.Models.TriangleContainer
+
+<div id="information" class="marginTop10">
+    Below is a representation of a container filled (a 60 pixel by 60 pixel grid) with "right triangles" with each segment being 10 pixels by 10 pixels.  The visual representation below is scaled up so that all of the triangles with their labels can be seen.  The idea behind the approach is that an image with a similar composition is provided and the coordinates for an individual triangle need to be determined.  To the right of the "triangle grid" is a search form where 3 sets of vertex coordinates can be entered and if the triangle is found in the grid, it will be highlighted.
+</div>
+<div class="hasLayout">
+    <div id="container">
+        @{
+            foreach (var triangle in Model.Triangles)
+            {
+                var left = triangle.X2Y2.X;
+                var top = triangle.X2Y2.Y;
+                var label = triangle.Label;
+                var labelPos = "Left";
+                if (triangle.ColumnNum % 2 == 0)
+                {
+                    left = triangle.X3Y3.X;
+                    top = triangle.X3Y3.Y;
+                    labelPos = "Right";
+                }
+
+                var leftPos = left * 10;
+                var topPos = top * 10;
+
+                <div class="triangleContainer" style="@string.Format("left: {0}px; top: {1}px;", leftPos, topPos)">
+                    <div ref="@triangle.Label" id="@string.Format("triangle{0}", triangle.Label)" class="@string.Format("triangle{0}", labelPos)">&nbsp;</div>
+                    <div ref="@triangle.Label" class="@string.Format("label{0}", labelPos)">@triangle.Label</div>
+                </div>
+            }
+        }
+    </div>
+
+    <div id="lookupForm">
+        <div id="lookupResult" class="none"></div>
+        <div>
+            <div>Vertex Position #1 -</div>
+            <div>
+                <label for="v1x">X:&nbsp;</label><input type="text" id="v1x" name="v1x" value="" />&nbsp;&nbsp;
+                <label for="v1y">Y:&nbsp;</label><input type="text" id="v1y" name="v1y" value="" />
+            </div>
+        </div>
+        <div>
+            <div>Vertex Position #2 -</div>
+            <div>
+                <label for="v2x">X:&nbsp;</label><input type="text" id="v2x" name="v2x" value="" />&nbsp;&nbsp;
+                <label for="v2y">Y:&nbsp;</label><input type="text" id="v2y" name="v2y" value="" />
+            </div>
+        </div>
+        <div>
+            <div>Vertex Position #3 -</div>
+            <div>
+                <label for="v3x">X:&nbsp;</label><input type="text" id="v3x" name="v3x" value="" />&nbsp;&nbsp;
+                <label for="v3y">Y:&nbsp;</label><input type="text" id="v3y" name="v3y" value="" />
+            </div>
+        </div>
+        <div class="marginTop10">
+            <input type="button" id="findTriangleCoordinates" value="Find Triangle" />
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        $("#findTriangleCoordinates").click(function () {
+            var v1x = $("#v1x").val();
+            var v1y = $("#v1y").val();
+            var v2x = $("#v2x").val();
+            var v2y = $("#v2y").val();
+            var v3x = $("#v3x").val();
+            var v3y = $("#v3y").val();
+
+            if (!$("#lookupResult").hasClass("none")) {
+                $("#lookupResult").addClass("none");
+            }
+
+            if ($(".triangleContainer .triangleRight").hasClass("highlight")) {
+                $(".triangleContainer .triangleRight").removeClass("highlight");
+            }
+            if ($(".triangleContainer .triangleLeft").hasClass("highlight")) {
+                $(".triangleContainer .triangleLeft").removeClass("highlight");
+            }
+
+            // Validation check
+            if (v1x == "" || v1y == "" || v2x == "" || v2y == "" || v3x == "" || v3y == "") {
+                $("#lookupResult").html("All vertex coordinates need to be entered.  Please provide all vertex coordinates and try again.");
+                $("#lookupResult").removeClass("none");
+            } else if (isNaN(v1x) || isNaN(v1y) || isNaN(v2x) || isNaN(v2y) || isNaN(v3x) || isNaN(v3y)) {
+                $("#lookupResult").html("One or more of the entered vertex coordinates is not a number.  Please correct and try again.");
+                $("#lookupResult").removeClass("none");
+            } else {
+                if (v1x % 10 != 0 || v1y % 10 != 0 || v2x % 10 != 0 || v2y % 10 != 0 || v3x % 10 != 0 || v3y % 10 != 0) {
+                    $("#lookupResult").html("All entered vertex coordinates wil be rounded to the nearest 10 so that the close Triangle to the entered coordinates can be found.<br />");
+
+                    v1x = roundVertex(v1x);
+                    v1y = roundVertex(v1y);
+                    v2x = roundVertex(v2x);
+                    v2y = roundVertex(v2y);
+                    v3x = roundVertex(v3x);
+                    v3y = roundVertex(v3y);
+                    $("#lookupResult").removeClass("none");
+                }
+
+                var ajaxObj = {
+                    url: "/Home/LookupTriangle",
+                    type: "GET",
+                    dataType: "json",
+                    data: { x1: v1x, y1: v1y, x2: v2x, y2: v2y, x3: v3x, y3: v3y }
+                };
+
+                $.ajax(ajaxObj).done(function (response) {
+                    var raw = JSON.parse(response);
+
+                    var label = raw.label;
+                    var message = raw.message;
+                    $("#triangle" + label).addClass("highlight");
+                    console.log(response);
+                    if (!$("#lookupResult").hasClass("none")) {
+                        var pre = message;
+                        message = $("#lookupResult").html() + "<br />" + pre;
+                    }
+                    $("#lookupResult").html(message);
+                    $("#lookupResult").removeClass("none");
+                }).fail(function () { alert("Something went wrong..."); });
+            }
+        });
+    });
+
+    function roundVertex(vertex) {
+        if (vertex % 10 > 0 && vertex % 10 < 5) {
+            return vertex - (vertex % 10);
+        } else if (vertex % 10 >= 5) {
+            return parseInt(vertex) - parseInt((vertex % 10)) + 10;
+        }
+        return vertex;
+    }
+</script>
